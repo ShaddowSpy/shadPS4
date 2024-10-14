@@ -505,14 +505,43 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
 
     u32 button = 0;
     Input::Axis axis = Input::Axis::AxisMax;
-    int axis_value = 0;
-
-    // Handle window controls outside of the input maps
-    if (event->type == SDL_EVENT_KEY_DOWN) {
-        // Toggle capture of the mouse
-        if (binding.key == SDLK_F9) {
-            SDL_SetWindowRelativeMouseMode(this->GetSdlWindow(),
-                                           !SDL_GetWindowRelativeMouseMode(this->GetSdlWindow()));
+    int axisvalue = 0;
+    int ax = 0;
+    std::string backButtonBehavior = Config::getBackButtonBehavior();
+    switch (event->key.key) {
+    case SDLK_UP:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_UP;
+        break;
+    case SDLK_DOWN:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_DOWN;
+        break;
+    case SDLK_LEFT:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_LEFT;
+        break;
+    case SDLK_RIGHT:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_RIGHT;
+        break;
+    case TriangleKey:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TRIANGLE;
+        break;
+    case CircleKey:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CIRCLE;
+        break;
+    case CrossKey:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_CROSS;
+        break;
+    case SquareKey:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_SQUARE;
+        break;
+    case SDLK_RETURN:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_OPTIONS;
+        break;
+    case SDLK_A:
+        axis = Input::Axis::LeftX;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += -127;
+        } else {
+            axisvalue = 0;
         }
         // Reparse kbm inputs
         if (binding.key == SDLK_F8) {
@@ -528,8 +557,99 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
             bool is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
             SDL_SetWindowFullscreen(window, !is_fullscreen);
         }
-        // Trigger rdoc capture
-        if (binding.key == SDLK_F12) {
+        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
+        break;
+    case SDLK_J:
+        axis = Input::Axis::RightX;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += -127;
+        } else {
+            axisvalue = 0;
+        }
+        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
+        break;
+    case SDLK_L:
+        axis = Input::Axis::RightX;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += 127;
+        } else {
+            axisvalue = 0;
+        }
+        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
+        break;
+    case SDLK_I:
+        axis = Input::Axis::RightY;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += -127;
+        } else {
+            axisvalue = 0;
+        }
+        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
+        break;
+    case SDLK_K:
+        axis = Input::Axis::RightY;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += 127;
+        } else {
+            axisvalue = 0;
+        }
+        ax = Input::GetAxis(-0x80, 0x80, axisvalue);
+        break;
+    case SDLK_X:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L3;
+        break;
+    case SDLK_M:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R3;
+        break;
+    case SDLK_Q:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L1;
+        break;
+    case SDLK_U:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R1;
+        break;
+    case SDLK_E:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_L2;
+        axis = Input::Axis::TriggerLeft;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += 255;
+        } else {
+            axisvalue = 0;
+        }
+        ax = Input::GetAxis(0, 0x80, axisvalue);
+        break;
+    case SDLK_O:
+        button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_R2;
+        axis = Input::Axis::TriggerRight;
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            axisvalue += 255;
+        } else {
+            axisvalue = 0;
+        }
+        ax = Input::GetAxis(0, 0x80, axisvalue);
+        break;
+    case SDLK_SPACE:
+        if (backButtonBehavior != "none") {
+            float x = backButtonBehavior == "left" ? 0.25f
+                                                   : (backButtonBehavior == "right" ? 0.75f : 0.5f);
+            // trigger a touchpad event so that the touchpad emulation for back button works
+            controller->SetTouchpadState(0, true, x, 0.5f);
+            button = OrbisPadButtonDataOffset::ORBIS_PAD_BUTTON_TOUCH_PAD;
+        } else {
+            button = 0;
+        }
+        break;
+    case SDLK_F11:
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            {
+                SDL_WindowFlags flag = SDL_GetWindowFlags(window);
+                bool is_fullscreen = flag & SDL_WINDOW_FULLSCREEN;
+                SDL_SetWindowFullscreen(window, !is_fullscreen);
+            }
+        }
+        break;
+    case SDLK_F12:
+        if (event->type == SDL_EVENT_KEY_DOWN) {
+            // Trigger rdoc capture
             VideoCore::TriggerCapture();
         }
     }
@@ -561,48 +681,6 @@ void WindowSDL::onKeyPress(const SDL_Event* event) {
         int ax = Input::GetAxis(-0x80, 0x80, axis_value);
         controller->Axis(0, axis, ax);
     }
-}
-
-// if we don't do this, then if we activate a mod keyed input and let go of the mod key first,
-// the button will be stuck on the "on" state becuse the "turn off" signal would only come from
-// the other key being unpressed
-void WindowSDL::updateModKeyedInputsManually(Frontend::KeyBinding& binding) {
-    bool mod_keyed_input_found = false;
-    for (auto input : button_map) {
-        if (input.first.modifier != SDL_KMOD_NONE) {
-            if ((input.first.modifier & binding.modifier) == 0) {
-                WindowSDL::updateButton(binding, input.second, false);
-            } else if (input.first.key == binding.key) {
-                mod_keyed_input_found = true;
-            }
-        }
-    }
-    for (auto input : axis_map) {
-        if (input.first.modifier != SDL_KMOD_NONE) {
-            if ((input.first.modifier & binding.modifier) == 0) {
-                controller->Axis(0, input.second.axis, Input::GetAxis(-0x80, 0x80, 0));
-            } else if (input.first.key == binding.key) {
-                mod_keyed_input_found = true;
-            }
-        }
-    }
-    // if both non mod keyed and mod keyed inputs are used and you press the key and then the mod
-    // key in a single frame, both will activate but the simple one will not deactivate, unless i
-    // use this stupid looking workaround
-    if (!mod_keyed_input_found)
-        return; // in this case the fix for the fix for the wrong update order is not needed
-    for (auto input : button_map) {
-        if (input.first.modifier == SDL_KMOD_NONE) {
-            WindowSDL::updateButton(binding, input.second, false);
-        }
-    }
-    for (auto input : axis_map) {
-        if (input.first.modifier == SDL_KMOD_NONE) {
-            controller->Axis(0, input.second.axis, Input::GetAxis(-0x80, 0x80, 0));
-        }
-    }
-    // also this sometimes leads to janky inputs but whoever decides to intentionally create a state
-    // where this is needed should not deserve a smooth experience anyway
 }
 
 void WindowSDL::onGamepadEvent(const SDL_Event* event) {

@@ -22,7 +22,6 @@ public:
     ~SettingsDialog();
 
     bool eventFilter(QObject* obj, QEvent* event) override;
-
     void updateNoteTextEdit(const QString& groupName);
 
     int exec() override;
@@ -34,10 +33,13 @@ private:
     void LoadValuesFromConfig();
     void InitializeEmulatorLanguages();
     void OnLanguageChanged(int index);
+    void OnCursorStateChanged(s16 index);
 
     std::unique_ptr<Ui::SettingsDialog> ui;
 
     std::map<std::string, int> languages;
 
     QString defaultTextEdit;
+
+    int initialHeight;
 };

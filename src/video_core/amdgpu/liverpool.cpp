@@ -6,6 +6,7 @@
 #include "common/debug.h"
 #include "common/polyfill_thread.h"
 #include "common/thread.h"
+#include "core/debug_state.h"
 #include "core/libraries/videoout/driver.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_cmds.h"
@@ -187,6 +188,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
         TracyFiberEnter(dcb_task_name);
     }
 
+    const auto base_addr = reinterpret_cast<uintptr_t>(dcb.data());
     while (!dcb.empty()) {
         const auto* header = reinterpret_cast<const PM4Header*>(dcb.data());
         const u32 type = header->type;
@@ -225,6 +227,17 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                                                  marker_sz};
                     if (rasterizer) {
                         rasterizer->ScopeMarkerBegin(label);
+                    }
+                    break;
+                }
+                case PM4CmdNop::PayloadType::DebugColorMarkerPush: {
+                    const auto marker_sz = nop->header.count.Value() * 2;
+                    const std::string_view label{reinterpret_cast<const char*>(&nop->data_block[1]),
+                                                 marker_sz};
+                    const u32 color = *reinterpret_cast<const u32*>(
+                        reinterpret_cast<const u8*>(&nop->data_block[1]) + marker_sz);
+                    if (rasterizer) {
+                        rasterizer->ScopedMarkerInsertColor(label, color);
                     }
                     break;
                 }
@@ -350,6 +363,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 regs.index_base_address.base_addr_hi.Assign(draw_index->index_base_hi);
                 regs.num_indices = draw_index->index_count;
                 regs.draw_initiator = draw_index->draw_initiator;
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndex2", cmd_address));
@@ -364,6 +380,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 regs.max_index_size = draw_index_off->max_size;
                 regs.num_indices = draw_index_off->index_count;
                 regs.draw_initiator = draw_index_off->draw_initiator;
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(
@@ -377,6 +396,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto* draw_index = reinterpret_cast<const PM4CmdDrawIndexAuto*>(header);
                 regs.num_indices = draw_index->index_count;
                 regs.draw_initiator = draw_index->draw_initiator;
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndexAuto", cmd_address));
@@ -390,6 +412,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto offset = draw_indirect->data_offset;
                 const auto ib_address = mapped_queues[GfxQueueId].indirect_args_addr;
                 const auto size = sizeof(PM4CmdDrawIndirect::DrawInstancedArgs);
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:DrawIndirect", cmd_address));
@@ -404,6 +429,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto offset = draw_index_indirect->data_offset;
                 const auto ib_address = mapped_queues[GfxQueueId].indirect_args_addr;
                 const auto size = sizeof(PM4CmdDrawIndexIndirect::DrawIndexInstancedArgs);
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(
@@ -419,6 +447,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 regs.cs_program.dim_y = dispatch_direct->dim_y;
                 regs.cs_program.dim_z = dispatch_direct->dim_z;
                 regs.cs_program.dispatch_initiator = dispatch_direct->dispatch_initiator;
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(fmt::format("dcb:{}:Dispatch", cmd_address));
@@ -433,6 +464,9 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 const auto offset = dispatch_indirect->data_offset;
                 const auto ib_address = mapped_queues[GfxQueueId].indirect_args_addr;
                 const auto size = sizeof(PM4CmdDispatchIndirect::GroupDimensions);
+                if (DebugState.DumpingCurrentReg()) {
+                    DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+                }
                 if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
                     const auto cmd_address = reinterpret_cast<const void*>(header);
                     rasterizer->ScopeMarkerBegin(
@@ -567,6 +601,7 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
 Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
     TracyFiberEnter(acb_task_name);
 
+    auto base_addr = reinterpret_cast<uintptr_t>(acb.data());
     while (!acb.empty()) {
         const auto* header = reinterpret_cast<const PM4Header*>(acb.data());
         const u32 type = header->type;
@@ -611,6 +646,9 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, int vqid) {
             regs.cs_program.dim_y = dispatch_direct->dim_y;
             regs.cs_program.dim_z = dispatch_direct->dim_z;
             regs.cs_program.dispatch_initiator = dispatch_direct->dispatch_initiator;
+            if (DebugState.DumpingCurrentReg()) {
+                DebugState.PushRegsDump(base_addr, reinterpret_cast<uintptr_t>(header), regs);
+            }
             if (rasterizer && (regs.cs_program.dispatch_initiator & 1)) {
                 const auto cmd_address = reinterpret_cast<const void*>(header);
                 rasterizer->ScopeMarkerBegin(fmt::format("acb[{}]:{}:Dispatch", vqid, cmd_address));

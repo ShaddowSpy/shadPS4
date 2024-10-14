@@ -8,6 +8,7 @@
 #include "common/assert.h"
 #include "common/types.h"
 #include "shader_recompiler/backend/bindings.h"
+#include "shader_recompiler/frontend/copy_shader.h"
 #include "shader_recompiler/ir/attribute.h"
 #include "shader_recompiler/ir/reg.h"
 #include "shader_recompiler/ir/type.h"
@@ -169,6 +170,8 @@ struct Info {
     };
     UserDataMask ud_mask{};
 
+    CopyShaderData gs_copy_data;
+
     s8 vertex_offset_sgpr = -1;
     s8 instance_offset_sgpr = -1;
 
@@ -225,8 +228,9 @@ struct Info {
     }
 
     void AddBindings(Backend::Bindings& bnd) const {
-        bnd.buffer += buffers.size() + texture_buffers.size();
-        bnd.unified += bnd.buffer + images.size() + samplers.size();
+        const auto total_buffers = buffers.size() + texture_buffers.size();
+        bnd.buffer += total_buffers;
+        bnd.unified += total_buffers + images.size() + samplers.size();
         bnd.user_data += ud_mask.NumRegs();
     }
 
