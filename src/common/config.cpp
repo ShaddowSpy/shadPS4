@@ -42,7 +42,6 @@ static std::string logFilter;
 static std::string logType = "async";
 static std::string userName = "shadPS4";
 static std::string updateChannel;
-static std::string backButtonBehavior = "left";
 static bool useSpecialPad = false;
 static std::string backButtonBehavior = "left";
 static int specialPadClass = 1;
